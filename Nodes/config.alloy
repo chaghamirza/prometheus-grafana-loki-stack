@@ -17,9 +17,15 @@ discovery.relabel "metrics_relabeled" {
     prometheus.exporter.cadvisor.docker_containers.targets,
   )
 
+// 1. Inject node name
   rule {
     target_label = "instance"
     replacement  = sys.env("NODE_NAME")
+  }
+  // 2. Inject environment name (production, staging, etc.)
+  rule {
+    target_label = "environment"
+    replacement  = sys.env("ENVIRONMENT_NAME")
   }
 }
 
@@ -92,6 +98,7 @@ loki.source.file "os_logs_scrape" {
 loki.write "central_loki" {
   endpoint {
     url = "https://loki.yourdomain.com/loki/api/v1/push"
+    tenant_id = sys.env("ENVIRONMENT_NAME")
 
     basic_auth {
       username = "alloy-agent"

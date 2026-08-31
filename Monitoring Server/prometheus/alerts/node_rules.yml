@@ -1,0 +1,41 @@
+groups:
+  - name: hardware_alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance, environment) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }} ({{ $labels.environment }})"
+          description: "CPU usage is at {{ humanize $value }}% on {{ $labels.environment }} environment."
+
+      - alert: HighMemoryUsage
+        expr: |
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Memory usage on {{ $labels.instance }} ({{ $labels.environment }})"
+          description: "Memory usage is at {{ humanize $value }}% on {{ $labels.environment }} environment."
+
+      - alert: LowDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space running out on {{ $labels.instance }} ({{ $labels.environment }})"
+          description: "Only {{ humanize $value }}% of disk space left on {{ $labels.environment }} environment."
+
+      - alert: NodeDown
+        expr: up == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ $labels.instance }} is DOWN in {{ $labels.environment }}!"
+          description: "Prometheus cannot scrape data from this server in the {{ $labels.environment }} environment."

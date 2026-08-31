@@ -1,0 +1,13 @@
+groups:
+  - name: staging_app_logs
+    rules:
+      - alert: HighHttp500Errors
+        expr: |
+          sum(count_over_time({instance=~".+"} |= "HTTP/1.1\" 500" [1m])) > 50
+        for: 1m
+        labels:
+          severity: info
+          environment: staging
+        annotations:
+          summary: "STAGING Alert: 500 Errors on {{ $labels.instance }}"
+          description: "Developers might be testing, but 500 errors are spiking on staging."

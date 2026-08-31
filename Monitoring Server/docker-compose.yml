@@ -55,6 +55,7 @@ services:
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
     expose:
       - "9090"
     networks:
@@ -103,6 +104,7 @@ services:
     volumes:
       - loki_data:/loki
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ./loki/rules:/loki/rules:ro
     expose:
       - "3100"
     networks:

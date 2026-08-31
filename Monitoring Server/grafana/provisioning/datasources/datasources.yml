@@ -8,8 +8,20 @@ datasources:
     isDefault: true
     editable: false
 
-  - name: Loki
+  - name: Loki - Production
     type: loki
     access: proxy
-    url: http://loki:3100
     editable: false
+    url: http://loki:3100
+    jsonData:
+      httpHeaderName1: "X-Scope-OrgID"
+      httpHeaderValue1: "production"
+
+  - name: Loki - Staging
+    type: loki
+    access: proxy
+    editable: false
+    url: http://loki:3100
+    jsonData:
+      httpHeaderName1: "X-Scope-OrgID"
+      httpHeaderValue1: "staging"

@@ -1,0 +1,33 @@
+groups:
+  - name: production_security_logs
+    rules:
+      - alert: SSHLoginSuccessful
+        expr: |
+          sum by (instance, ssh_user, ip) (
+            count_over_time(
+              {instance=~".+"}
+              |= "Accepted"
+              | regexp "Accepted (?:password|publickey) for (?P<ssh_user>[a-zA-Z0-9_\\.-]+) from (?P<ip>[0-9\\.]+)"
+              [1m]
+            )
+          ) > 0
+        for: 0m
+        labels:
+          severity: warning
+          environment: production
+        annotations:
+          summary: "PROD Alert: SSH Login on {{ $labels.instance }}"
+          description: "User '{{ $labels.ssh_user }}' successfully logged into PRODUCTION server {{ $labels.instance }} from IP {{ $labels.ip }}."
+
+  - name: production_app_logs
+    rules:
+      - alert: HighHttp500Errors
+        expr: |
+          sum(count_over_time({instance=~".+"} |= "HTTP/1.1\" 500" [1m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+          environment: production
+        annotations:
+          summary: "PROD Alert: 500 Internal Server Errors on {{ $labels.instance }}"
+          description: "High rate of 500 errors detected on production server."
