@@ -123,6 +123,10 @@ services:
       image: prom/alertmanager:latest
       container_name: alertmanager
       restart: always
+      environment:
+      - SMTP_FROM=${SMTP_FROM}
+      - SMTP_TO=${SMTP_TO}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
       command:
         - '--config.file=/etc/alertmanager/alertmanager.yml'
         - '--storage.path=/alertmanager'
