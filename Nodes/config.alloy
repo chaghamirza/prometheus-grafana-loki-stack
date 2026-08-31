@@ -1,0 +1,101 @@
+// -----------------------------------------------------------------------------
+// 1. METRICS COLLECTION
+// -----------------------------------------------------------------------------
+
+// Extract host metrics (equivalent to Node Exporter)
+prometheus.exporter.unix "os_metrics" { }
+
+// Extract container metrics (equivalent to cAdvisor)
+prometheus.exporter.cadvisor "docker_containers" {
+  docker_host = "unix:///var/run/docker.sock"
+}
+
+// Dynamically inject the node name (from environment variable) into metric labels
+discovery.relabel "metrics_relabeled" {
+  targets = concat(
+    prometheus.exporter.unix.os_metrics.targets,
+    prometheus.exporter.cadvisor.docker_containers.targets,
+  )
+
+  rule {
+    target_label = "instance"
+    replacement  = sys.env("NODE_NAME")
+  }
+}
+
+// Collect relabeled metrics and forward them to remote write
+prometheus.scrape "local_scrapers" {
+  targets         = discovery.relabel.metrics_relabeled.output
+  forward_to      = [prometheus.remote_write.central_monitoring.receiver]
+  scrape_interval = "15s"
+}
+
+// Push metrics securely to central Prometheus receiver
+prometheus.remote_write "central_monitoring" {
+  endpoint {
+    url = "https://prom.yourdomain.com/api/v1/write"
+
+    basic_auth {
+      username = "alloy-agent"
+      password = "SecurePassword123"
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 2. LOGS COLLECTION (Docker & OS)
+// -----------------------------------------------------------------------------
+
+// A. Docker Container Logs
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "logs_relabeled" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = sys.env("NODE_NAME")
+  }
+}
+
+loki.source.docker "docker_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.logs_relabeled.output
+  forward_to = [loki.write.central_loki.receiver]
+}
+
+
+// B. Operating System Logs (/var/log/*.log)
+local.file_match "os_logs" {
+  path_targets = [{"__path__" = "/var/log/*.log"}]
+}
+
+// Add instance label to OS logs as well
+discovery.relabel "os_logs_relabeled" {
+  targets = local.file_match.os_logs.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = sys.env("NODE_NAME")
+  }
+}
+
+loki.source.file "os_logs_scrape" {
+  targets    = discovery.relabel.os_logs_relabeled.output
+  forward_to = [loki.write.central_loki.receiver]
+}
+
+
+// C. Central Loki Receiver (Common for both Docker and OS logs)
+loki.write "central_loki" {
+  endpoint {
+    url = "https://loki.yourdomain.com/loki/api/v1/push"
+
+    basic_auth {
+      username = "alloy-agent"
+      password = "SecurePassword123"
+    }
+  }
+}

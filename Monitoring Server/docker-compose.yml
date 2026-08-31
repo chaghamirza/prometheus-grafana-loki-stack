@@ -1,0 +1,135 @@
+version: '3.9'
+
+networks:
+  monitoring_net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+    external: true
+  grafana_data:
+    external: true
+  loki_data:
+    external: true
+  traefik_certs:
+  alertmanager_data:
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    restart: always
+    command:
+      - "--providers.docker=true"
+      # just publish containers with labels
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # redirect from http to https
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # lets encrypt settings
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_certs:/letsencrypt
+      # Basic Auth
+      - ./traefik/htpasswd:/etc/traefik/htpasswd:ro
+    networks:
+      - monitoring_net
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION}
+    container_name: prometheus
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    expose:
+      - "9090"
+    networks:
+      - monitoring_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prom.yourdomain.com`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      # applying middleware for basic auth
+      - "traefik.http.routers.prometheus.middlewares=monitoring-auth"
+      # defining middleware
+      - "traefik.http.middlewares.monitoring-auth.basicauth.usersfile=/etc/traefik/htpasswd"
+    cpus: 1.0
+    mem_limit: 1g
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION}
+    container_name: grafana
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    expose:
+      - "3000"
+    networks:
+      - monitoring_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.yourdomain.com`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    cpus: 1.0
+    mem_limit: 1g
+
+  loki:
+    image: grafana/loki:${LOKI_VERSION}
+    container_name: loki
+    restart: always
+    volumes:
+      - loki_data:/loki
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+    expose:
+      - "3100"
+    networks:
+      - monitoring_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.loki.rule=Host(`loki.yourdomain.com`)"
+      - "traefik.http.routers.loki.entrypoints=websecure"
+      - "traefik.http.routers.loki.tls.certresolver=letsencrypt"
+      - "traefik.http.services.loki.loadbalancer.server.port=3100"
+      - "traefik.http.routers.loki.middlewares=monitoring-auth"
+    cpus: 1.0
+    mem_limit: 1g
+
+  alertmanager:
+      image: prom/alertmanager:latest
+      container_name: alertmanager
+      restart: always
+      command:
+        - '--config.file=/etc/alertmanager/alertmanager.yml'
+        - '--storage.path=/alertmanager'
+      volumes:
+        - alertmanager_data:/alertmanager
+        - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      expose:
+        - "9093"
+
+      cpus: 1.0
+      mem_limit: 1g
+
