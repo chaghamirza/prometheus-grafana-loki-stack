@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:${ALLOY_VERSION}
     container_name: alloy-agent
     restart: always
 

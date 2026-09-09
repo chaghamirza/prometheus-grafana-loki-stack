@@ -16,7 +16,7 @@ volumes:
 
 services:
   traefik:
-    image: traefik:latest
+    image: traefik:${TRAEFIK_VERSION}
     container_name: traefik
     restart: always
     environment:
@@ -104,7 +104,7 @@ services:
     mem_limit: 1g
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:${LOKI_VERSION}
     container_name: loki
     restart: always
     volumes:
@@ -126,7 +126,7 @@ services:
     mem_limit: 1g
 
   alertmanager:
-      image: prom/alertmanager:latest
+      image: prom/alertmanager:${ALERTMANAGER_VERSION}
       container_name: alertmanager
       restart: always
       environment:
