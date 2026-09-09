@@ -15,6 +15,7 @@ datasources:
     url: http://loki:3100
     jsonData:
       httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
       httpHeaderValue1: "production"
 
   - name: Loki - Staging
@@ -24,4 +25,5 @@ datasources:
     url: http://loki:3100
     jsonData:
       httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
       httpHeaderValue1: "staging"

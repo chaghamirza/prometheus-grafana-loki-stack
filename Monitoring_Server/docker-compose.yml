@@ -16,9 +16,11 @@ volumes:
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:latest
     container_name: traefik
     restart: always
+    environment:
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     command:
       - "--providers.docker=true"
       # just publish containers with labels
@@ -29,9 +31,13 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       # lets encrypt settings
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.letsencrypt.acme.email=maatbeat@gmail.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
@@ -62,7 +68,7 @@ services:
       - monitoring_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prom.yourdomain.com`)"
+      - "traefik.http.routers.prometheus.rule=Host(`prom.krnl.ir`)"
       - "traefik.http.routers.prometheus.entrypoints=websecure"
       - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
@@ -90,7 +96,7 @@ services:
       - monitoring_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.yourdomain.com`)"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.krnl.ir`)"
       - "traefik.http.routers.grafana.entrypoints=websecure"
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
@@ -98,7 +104,7 @@ services:
     mem_limit: 1g
 
   loki:
-    image: grafana/loki:${LOKI_VERSION}
+    image: grafana/loki:latest
     container_name: loki
     restart: always
     volumes:
@@ -111,7 +117,7 @@ services:
       - monitoring_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.loki.rule=Host(`loki.yourdomain.com`)"
+      - "traefik.http.routers.loki.rule=Host(`loki.krnl.ir`)"
       - "traefik.http.routers.loki.entrypoints=websecure"
       - "traefik.http.routers.loki.tls.certresolver=letsencrypt"
       - "traefik.http.services.loki.loadbalancer.server.port=3100"
@@ -127,14 +133,21 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - SMTP_TO=${SMTP_TO}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
+      entrypoint: ["/bin/sh", "-c"]
       command:
-        - '--config.file=/etc/alertmanager/alertmanager.yml'
-        - '--storage.path=/alertmanager'
+        - |
+          sed -e "s|__SMTP_FROM__|$$SMTP_FROM|g" \
+              -e "s|__SMTP_TO__|$$SMTP_TO|g" \
+              -e "s|__SMTP_PASSWORD__|$$SMTP_PASSWORD|g" \
+              /etc/alertmanager/alertmanager.yml.template > /alertmanager/alertmanager.yml
+          exec alertmanager --config.file=/alertmanager/alertmanager.yml --storage.path=/alertmanager
       volumes:
         - alertmanager_data:/alertmanager
-        - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+        - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml.template:ro
       expose:
         - "9093"
+      networks:
+        - monitoring_net
 
       cpus: 1.0
       mem_limit: 1g

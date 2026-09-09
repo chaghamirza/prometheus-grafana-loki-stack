@@ -5,17 +5,35 @@ services:
     image: grafana/alloy:latest
     container_name: alloy-agent
     restart: always
+
+    privileged: true
+
+    extra_hosts:
+      - "prom.krnl.ir:192.168.1.100"
+      - "loki.krnl.ir:192.168.1.100"
+
     environment:
       - NODE_NAME=${NODE_NAME:-node-default}
       - ENVIRONMENT_NAME=${ENVIRONMENT_NAME:-default-tenant}
+      - ALLOY_BASIC_AUTH_USER=${ALLOY_BASIC_AUTH_USER}
+      - ALLOY_BASIC_AUTH_PASS=${ALLOY_BASIC_AUTH_PASS}
+
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
       - ./config.alloy:/etc/alloy/config.alloy:ro
       - /var/log:/var/log:ro
+
     command:
       - "run"
       - "--server.http.listen-addr=127.0.0.1:12345"
       - "/etc/alloy/config.alloy"
+
     network_mode: "host"
+
     cpus: 0.5
     mem_limit: 512m

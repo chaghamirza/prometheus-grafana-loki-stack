@@ -10,14 +10,14 @@ prometheus.exporter.cadvisor "docker_containers" {
   docker_host = "unix:///var/run/docker.sock"
 }
 
-// Dynamically inject the node name (from environment variable) into metric labels
+// Dynamically inject the node name and environment into target labels
 discovery.relabel "metrics_relabeled" {
   targets = concat(
     prometheus.exporter.unix.os_metrics.targets,
     prometheus.exporter.cadvisor.docker_containers.targets,
   )
 
-// 1. Inject node name
+  // 1. Inject node name
   rule {
     target_label = "instance"
     replacement  = sys.env("NODE_NAME")
@@ -29,21 +29,38 @@ discovery.relabel "metrics_relabeled" {
   }
 }
 
-// Collect relabeled metrics and forward them to remote write
+// Collect metrics
 prometheus.scrape "local_scrapers" {
   targets         = discovery.relabel.metrics_relabeled.output
-  forward_to      = [prometheus.remote_write.central_monitoring.receiver]
+  forward_to      = [prometheus.relabel.cadvisor_fix.receiver]
   scrape_interval = "15s"
+}
+
+// Map cAdvisor metric labels to standard dashboard labels
+prometheus.relabel "cadvisor_fix" {
+  forward_to = [prometheus.remote_write.central_monitoring.receiver]
+
+  // Map cAdvisor 'name' label to 'container'
+  rule {
+    source_labels = ["name"]
+    target_label  = "container"
+  }
+
+  // Map Docker Compose service label to 'service'
+  rule {
+    source_labels = ["container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
 }
 
 // Push metrics securely to central Prometheus receiver
 prometheus.remote_write "central_monitoring" {
   endpoint {
-    url = "https://prom.yourdomain.com/api/v1/write"
+    url = "https://prom.krnl.ir/api/v1/write"
 
     basic_auth {
-      username = "alloy-agent"
-      password = "SecurePassword123"
+      username = sys.env("ALLOY_BASIC_AUTH_USER")
+      password = sys.env("ALLOY_BASIC_AUTH_PASS")
     }
   }
 }
@@ -72,13 +89,11 @@ loki.source.docker "docker_logs" {
   forward_to = [loki.write.central_loki.receiver]
 }
 
-
 // B. Operating System Logs (/var/log/*.log)
 local.file_match "os_logs" {
   path_targets = [{"__path__" = "/var/log/*.log"}]
 }
 
-// Add instance label to OS logs as well
 discovery.relabel "os_logs_relabeled" {
   targets = local.file_match.os_logs.targets
 
@@ -93,16 +108,16 @@ loki.source.file "os_logs_scrape" {
   forward_to = [loki.write.central_loki.receiver]
 }
 
-
-// C. Central Loki Receiver (Common for both Docker and OS logs)
+// C. Central Loki Receiver
 loki.write "central_loki" {
   endpoint {
-    url = "https://loki.yourdomain.com/loki/api/v1/push"
+    url = "https://loki.krnl.ir/loki/api/v1/push"
     tenant_id = sys.env("ENVIRONMENT_NAME")
 
+
     basic_auth {
-      username = "alloy-agent"
-      password = "SecurePassword123"
+      username = sys.env("ALLOY_BASIC_AUTH_USER")
+      password = sys.env("ALLOY_BASIC_AUTH_PASS")
     }
   }
 }

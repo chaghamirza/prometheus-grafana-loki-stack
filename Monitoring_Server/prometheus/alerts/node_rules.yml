@@ -32,10 +32,10 @@ groups:
           description: "Only {{ humanize $value }}% of disk space left on {{ $labels.environment }} environment."
 
       - alert: NodeDown
-        expr: up == 0
-        for: 3m
+        expr: (time() - max by (instance, environment) (timestamp(node_boot_time_seconds))) > 120
+        for: 1m
         labels:
-          severity: critical
+            severity: critical
         annotations:
-          summary: "Node {{ $labels.instance }} is DOWN in {{ $labels.environment }}!"
-          description: "Prometheus cannot scrape data from this server in the {{ $labels.environment }} environment."
+            summary: "Node {{ $labels.instance }} appears to be down ({{ $labels.environment }})"
+            description: "No metrics received from {{ $labels.instance }} in the {{ $labels.environment }} environment for over 2 minutes."
