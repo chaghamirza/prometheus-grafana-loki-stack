@@ -17,6 +17,7 @@ services:
       - ENVIRONMENT_NAME=${ENVIRONMENT_NAME:-default-tenant}
       - ALLOY_BASIC_AUTH_USER=${ALLOY_BASIC_AUTH_USER}
       - ALLOY_BASIC_AUTH_PASS=${ALLOY_BASIC_AUTH_PASS}
+      - DOMAIN=${DOMAIN}
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

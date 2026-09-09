@@ -56,7 +56,7 @@ prometheus.relabel "cadvisor_fix" {
 // Push metrics securely to central Prometheus receiver
 prometheus.remote_write "central_monitoring" {
   endpoint {
-    url = "https://prom.krnl.ir/api/v1/write"
+    url = "https://prom." + sys.env("DOMAIN") + "/api/v1/write"
 
     basic_auth {
       username = sys.env("ALLOY_BASIC_AUTH_USER")
@@ -111,7 +111,7 @@ loki.source.file "os_logs_scrape" {
 // C. Central Loki Receiver
 loki.write "central_loki" {
   endpoint {
-    url = "https://loki.krnl.ir/loki/api/v1/push"
+    url = "https://loki." + sys.env("DOMAIN") + "/loki/api/v1/push"
     tenant_id = sys.env("ENVIRONMENT_NAME")
 
 
