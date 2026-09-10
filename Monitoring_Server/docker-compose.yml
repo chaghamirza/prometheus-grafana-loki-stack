@@ -20,10 +20,11 @@ services:
     container_name: traefik
     restart: always
     environment:
+      # Required ONLY if you are using DNS Challenge (Option 2)
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     command:
       - "--providers.docker=true"
-      # just publish containers with labels
+      # Only publish containers with labels
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -31,12 +32,15 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       # lets encrypt settings
+
+      # Option 1: HTTP Challenge (Requires Public IP & Open Port 80 - No API needed)
       # - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      # - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL}"
-      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      
+      # Option 2: DNS Challenge (Works everywhere, including Local/Private networks)    
       - "--certificatesresolvers.letsencrypt.acme.dnschallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare"
+
       - "--certificatesresolvers.letsencrypt.acme.email=${EMAIL}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:

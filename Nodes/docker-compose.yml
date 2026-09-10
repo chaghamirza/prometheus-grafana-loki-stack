@@ -8,9 +8,10 @@ services:
 
     privileged: true
 
-    extra_hosts:
-      - "prom.krnl.ir:192.168.1.100"
-      - "loki.krnl.ir:192.168.1.100"
+    ## Enable extra_hosts ONLY if you are testing in a local environment without a public IP.
+    #extra_hosts:
+      #- "prom.${DOMAIN}:${MONITORING_SERVER_IP}"
+      #- "loki.${DOMAIN}:${MONITORING_SERVER_IP}"
 
     environment:
       - NODE_NAME=${NODE_NAME:-node-default}
